@@ -5,11 +5,11 @@ Mini-projeto avaliativo do Módulo 1 — Semana 07. O script `analise_varejo.py`
 ## Como obter os dados e executar
 
 1. Baixe `Base Varejo.csv` na página [Base Varejo no Kaggle](https://www.kaggle.com/datasets/namespaiva/base-varejo).
-2. Salve o arquivo como `Varejo.csv` na pasta do projeto.
+2. Salve o arquivo como `Base Varejo.csv` na pasta do projeto.
 3. Instale a dependência com `python -m pip install -r requirements.txt`.
-4. Execute `python analise_varejo.py`. Para outros caminhos, use `python analise_varejo.py --entrada caminho\Varejo.csv --saida caminho\df_limpo.csv`.
+4. Execute `python analise_varejo.py`. Para outros caminhos, use `python analise_varejo.py --entrada "caminho\Base Varejo.csv" --saida caminho\df_limpo.csv`.
 
-O programa imprime os diagnósticos, estatísticas, agrupamentos e conclusões no terminal e cria `df_limpo.csv`. O arquivo gerado não está versionado; rode o script para produzi-lo localmente.
+O programa imprime os diagnósticos, estatísticas, agrupamentos e conclusões no terminal e cria `df_limpo.csv`, que faz parte dos arquivos a entregar. O CSV original fica fora do Git; a base limpa é versionada conforme o Sprint 6 do enunciado.
 
 Para executar os testes automatizados: `python -m unittest discover -s tests -v`.
 
@@ -19,6 +19,7 @@ Para executar os testes automatizados: `python -m unittest discover -s tests -v`
 - **Transformação:** colunas sem nome e totalmente vazias são descartadas; categorias vazias recebem `"Sem Categoria"`; os campos de data, compra, cliente e número de filhos são convertidos para tipos apropriados.
 - **Nulos:** se houver número de filhos ausente, o script usa a mediana arredondada, preservando as linhas; dimensões físicas presentes são imputadas pela mediana da própria coluna. A base consultada não possui dimensões físicas. Datas e identificadores de compra ausentes são removidos por serem necessários para a análise temporal e de compras.
 - **Duplicatas:** são removidas apenas linhas inteiramente idênticas. `CO_ID` repetido não é tratado como duplicata: o mesmo pedido pode possuir vários produtos.
+- **Regra de compra:** cada `CO_ID` deve estar associado a um único cliente e uma única data, embora possa aparecer em diversas linhas de produtos; o script informa quantas compras violam essa regra.
 - **Agrupamentos:** comparam registros e compras únicas por gênero e categoria; não estimam valores de vendas.
 
 Qualidade de dados é a adequação, consistência, completude e validade dos dados para um uso específico. ETL significa extrair dados de uma fonte, transformá-los para corrigir ou padronizar sua estrutura e carregá-los para análise ou uso posterior.
