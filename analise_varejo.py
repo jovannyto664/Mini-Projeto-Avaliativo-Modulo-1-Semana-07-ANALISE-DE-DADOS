@@ -1,4 +1,4 @@
-"""Análise exploratória da base Varejo para o mini-projeto."""
+"""Aqui eu faço a análise exploratória da base Varejo para o mini-projeto."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ COLUNAS_DIMENSOES = (
 
 
 def normalizar_nome(nome: object) -> str:
-    """Padroniza nomes para localizar colunas apesar de acentos e espaços."""
+    """Aqui eu padronizo nomes para encontrar colunas mesmo com acentos e espaços."""
     texto = unicodedata.normalize("NFKD", str(nome))
     texto = "".join(caractere for caractere in texto if not unicodedata.combining(caractere))
     return re.sub(r"[^A-Z0-9]+", "_", texto.upper()).strip("_")
@@ -51,22 +51,22 @@ def localizar_coluna(
 
 
 def carregar_base(caminho: Path) -> pd.DataFrame:
-    """Lê a base publicada no Kaggle, usando a codificação e separador observados."""
+    """Aqui eu leio o CSV do Kaggle com o separador e a codificação dessa base."""
     if not caminho.is_file():
         raise FileNotFoundError(
             f"Arquivo não encontrado: {caminho}. Baixe o CSV indicado no README."
         )
 
-    # O arquivo do Kaggle usa ponto e vírgula e codificação compatível com Latin-1.
+    # Aqui eu leio o CSV com ponto e vírgula e a codificação Latin-1 usada pela base.
     df = pd.read_csv(caminho, sep=";", encoding="latin1", low_memory=False)
     df.columns = [str(coluna).strip() for coluna in df.columns]
-    # Células contendo apenas espaços também são valores ausentes.
+    # Eu também considero vazias as células que só têm espaços.
     df = df.replace(r"^\s*$", pd.NA, regex=True)
     return df
 
 
 def relatar_qualidade(df: pd.DataFrame) -> int:
-    # Exibe o perfil da fonte antes de qualquer transformação.
+    # Primeiro eu mostro o tamanho, os tipos e os valores ausentes da base original.
     print(f"Registros carregados: {len(df):,}".replace(",", "."))
     print(f"Colunas carregadas: {len(df.columns)}")
     print("\nTipos de dados originais:")
@@ -92,7 +92,7 @@ def limpar_base(df_original: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, obje
     df = df_original.copy()
     relatorio: dict[str, object] = {}
 
-    # Remove somente colunas excedentes que não possuem nenhum dado.
+    # Eu removo as colunas excedentes apenas quando elas estão completamente vazias.
     colunas_vazias = [
         coluna
         for coluna in df.columns
@@ -104,7 +104,8 @@ def limpar_base(df_original: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, obje
         df = df.drop(columns=colunas_vazias)
     relatorio["colunas_vazias_removidas"] = len(colunas_vazias)
 
-    # O arquivo usa #N/D para categorias desconhecidas; padronize junto com nulos.
+    # Como a base marca algumas categorias como #N/D, eu trato isso como valor ausente
+    # e preencho com "Sem Categoria", assim como faço com as células vazias.
     categoria = localizar_coluna(df.columns, COLUNAS_CATEGORIA)
     if categoria:
         marcador_ausente = df[categoria].astype("string").str.strip().str.upper().isin(
@@ -113,18 +114,18 @@ def limpar_base(df_original: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, obje
         df.loc[marcador_ausente, categoria] = pd.NA
         df[categoria] = df[categoria].fillna("Sem Categoria")
 
-    # Preserve os registros de gênero ausente com um rótulo explícito.
+    # Quando falta o gênero, eu mantenho o registro e uso um rótulo explícito.
     genero = localizar_coluna(df.columns, COLUNAS_GENERO)
     if genero:
         df[genero] = df[genero].fillna("Não informado")
 
-    # Removemos registros idênticos completos, não todas as linhas com o mesmo CO_ID:
-    # uma compra pode conter vários produtos e, portanto, repetir seu identificador.
+    # Eu removo só as linhas totalmente iguais. Não removo CO_ID repetido, porque
+    # uma compra pode ter vários produtos e aparecer em várias linhas.
     duplicatas = int(df.duplicated().sum())
     df = df.drop_duplicates().copy()
     relatorio["duplicatas_removidas"] = duplicatas
 
-    # Localize as colunas da base para converter tipos e validar a regra da compra.
+    # Aqui eu encontro as colunas que preciso converter e usar na regra de compra.
     compra = localizar_coluna(df.columns, COLUNAS_COMPRA)
     cliente = localizar_coluna(df.columns, COLUNAS_CLIENTE)
     filhos = localizar_coluna(df.columns, COLUNAS_FILHOS)
@@ -133,7 +134,7 @@ def limpar_base(df_original: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, obje
     relatorio["coluna_cliente"] = cliente
     relatorio["coluna_filhos"] = filhos
 
-    # Identificadores são numéricos; valores que não puderem ser convertidos viram nulos.
+    # Eu converto os identificadores em números; valores inválidos passam a nulos.
     if compra:
         df[compra] = pd.to_numeric(df[compra], errors="coerce").astype("Int64")
         relatorio["compras_unicas"] = int(df[compra].nunique(dropna=True))
@@ -142,8 +143,8 @@ def limpar_base(df_original: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, obje
     if cliente:
         df[cliente] = pd.to_numeric(df[cliente], errors="coerce").astype("Int64")
 
-    # Filhos é uma contagem inteira; a mediana arredondada preenche eventuais ausências
-    # sem remover clientes. Se todos os valores forem ausentes, mantenha-os ausentes.
+    # Eu trato número de filhos como contagem inteira e preencho os nulos com a
+    # mediana arredondada para não excluir clientes; se tudo estiver nulo, eu mantenho assim.
     if filhos:
         df[filhos] = pd.to_numeric(df[filhos], errors="coerce")
         ausentes_filhos = int(df[filhos].isna().sum())
@@ -154,8 +155,8 @@ def limpar_base(df_original: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, obje
             relatorio["imputacao_filhos"] = mediana
         df[filhos] = df[filhos].astype("Int64")
 
-    # Interprete datas no formato dia/mês/ano e descarte datas inválidas ou sem compra,
-    # pois elas não permitem análises temporais nem agrupamentos confiáveis por pedido.
+    # Eu converto as datas do formato dia/mês/ano e transformo datas inválidas em
+    # nulas para identificá-las e removê-las depois, antes das análises.
     if data:
         df[data] = pd.to_datetime(
             df[data], format="%d/%m/%Y", errors="coerce"
@@ -163,8 +164,8 @@ def limpar_base(df_original: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, obje
         datas_invalidas = int(df[data].isna().sum())
         relatorio["datas_invalidas"] = datas_invalidas
 
-    # Valide antes de excluir linhas com data ausente para não esconder uma compra
-    # que mistura datas válidas e inválidas.
+    # Antes de remover datas inválidas, eu verifico se cada compra pertence a um
+    # único cliente e a uma única data, sem esconder compras inconsistentes.
     if compra and cliente and data:
         compras = df.dropna(subset=[compra]).groupby(compra).agg(
             clientes=(cliente, lambda valores: valores.nunique(dropna=True)),
@@ -183,15 +184,16 @@ def limpar_base(df_original: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, obje
     else:
         relatorio["regra_compra_validada"] = False
 
-    # Datas e identificadores de compra são campos essenciais para as análises
-    # temporais e por pedido; remova as linhas sem esses valores após validá-las.
+    # Depois da validação, eu removo linhas sem data ou sem compra, pois não consigo
+    # usá-las nas análises por data e por pedido.
     essenciais = [coluna for coluna in (data, compra) if coluna]
     antes = len(df)
     if essenciais:
         df = df.dropna(subset=essenciais).copy()
     relatorio["registros_sem_data_ou_compra_removidos"] = antes - len(df)
 
-    # Trate dimensões físicas somente se existirem na versão recebida da base.
+    # Se a base tiver dimensões físicas, eu converto os valores e preencho os nulos
+    # com a mediana de cada coluna; se não tiver, não invento esses dados.
     dimensoes = [
         coluna
         for coluna in df.columns
@@ -217,12 +219,12 @@ def estatisticas_filhos(df: pd.DataFrame, coluna_filhos: str | None, coluna_clie
     if not coluna_filhos:
         return None
 
-    # Cada cliente pode aparecer em várias linhas de produto, mas seu perfil deve
-    # contribuir uma única vez para a estatística descritiva.
+    # Como um cliente pode aparecer em várias linhas de produto, eu conto o número
+    # de filhos dele só uma vez nas estatísticas.
     valores = df[[coluna_filhos] + ([coluna_cliente] if coluna_cliente else [])].copy()
     valores = valores.dropna(subset=[coluna_filhos])
     if coluna_cliente:
-        # A mesma pessoa aparece em várias linhas de produto; conte seu perfil uma vez.
+        # Aqui eu retiro as repetições de cliente antes de calcular as estatísticas.
         valores = valores.drop_duplicates(subset=[coluna_cliente])
     return valores[coluna_filhos].describe(percentiles=[0.25, 0.5, 0.75])
 
@@ -233,7 +235,7 @@ def agrupar(
     if not compra:
         return None, None
 
-    # Mostre tanto o volume de linhas quanto os pedidos distintos em cada grupo.
+    # Para cada grupo, eu mostro o número de linhas e quantas compras diferentes há.
     def resumir(coluna: str | None) -> pd.DataFrame | None:
         if not coluna:
             return None
@@ -256,7 +258,7 @@ def conclusoes(
     por_genero: pd.DataFrame | None,
     por_categoria: pd.DataFrame | None,
 ) -> list[str]:
-    # Gere conclusões a partir dos resultados, limitadas à faixa pedida no enunciado.
+    # Aqui eu monto de três a seis conclusões a partir dos resultados da análise.
     itens = [
         (
             f"A base ficou com {len(df):,} registros após a limpeza; "
@@ -297,7 +299,7 @@ def conclusoes(
 
 
 def executar(caminho_entrada: Path, caminho_saida: Path) -> None:
-    # Execute as etapas na ordem da análise: diagnóstico, limpeza, resumos e exportação.
+    # Aqui eu organizo o fluxo: verifico os dados, limpo a base, analiso e salvo o CSV.
     original = carregar_base(caminho_entrada)
     relatar_qualidade(original)
     limpa, relatorio = limpar_base(original)
@@ -348,7 +350,7 @@ def executar(caminho_entrada: Path, caminho_saida: Path) -> None:
     else:
         print("\nColuna de número de filhos não encontrada; estatísticas não calculadas.")
 
-    # Exiba os dois agrupamentos exigidos quando as colunas correspondentes existirem.
+    # Eu mostro os agrupamentos por gênero e categoria quando encontro essas colunas.
     for titulo, tabela in (("Agrupamento por gênero", por_genero), ("Agrupamento por categoria", por_categoria)):
         if tabela is not None:
             print(f"\n{titulo} (registros e compras únicas):")
@@ -356,7 +358,7 @@ def executar(caminho_entrada: Path, caminho_saida: Path) -> None:
         else:
             print(f"\n{titulo}: coluna necessária não encontrada.")
 
-    # Salve a base tratada para compor a entrega do projeto.
+    # Por fim, eu salvo a base limpa para incluir no projeto.
     caminho_saida.parent.mkdir(parents=True, exist_ok=True)
     limpa.to_csv(caminho_saida, index=False, encoding="utf-8-sig")
     print(f"\nBase limpa salva em: {caminho_saida}")
@@ -369,7 +371,7 @@ def executar(caminho_entrada: Path, caminho_saida: Path) -> None:
 
 
 def main() -> None:
-    # Permita personalizar os caminhos mantendo nomes padrão para execução simples.
+    # Eu aceito caminhos personalizados e uso nomes padrão para facilitar a execução.
     parser = argparse.ArgumentParser(description="Executa a análise exploratória da base Varejo.")
     parser.add_argument("--entrada", type=Path, default=Path("Base Varejo.csv"), help="Caminho do CSV original.")
     parser.add_argument("--saida", type=Path, default=Path("df_limpo.csv"), help="Caminho do CSV limpo.")
